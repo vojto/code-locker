@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# Builds the Rust time-lock library that the app links against.
+# Xcode runs this at the start of every build. Needs Rust (https://rustup.rs).
+
+set -euo pipefail
+
+cd "$(dirname "$0")/../Timelock"
+export PATH="$HOME/.cargo/bin:$PATH"
+
+cargo build --release --quiet

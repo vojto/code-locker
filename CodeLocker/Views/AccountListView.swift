@@ -1,9 +1,11 @@
 import SwiftUI
 
 /*
- * The main window: the list of accounts with their current codes.
- * Ticks once a second so codes and countdown rings stay fresh. Owns the
- * "+" toolbar button, the add-account sheet and the delete confirmation.
+ * The main window: the list of accounts with their current codes, or padlocks
+ * while they are locked. Ticks once a second so codes and countdown rings stay
+ * fresh. The line under the window title says whether codes are locked and when
+ * that changes. Owns the "+" toolbar button, the add-account sheet and the
+ * delete confirmation.
  */
 
 struct AccountListView: View {
@@ -15,10 +17,11 @@ struct AccountListView: View {
     var body: some View {
         TimelineView(.periodic(from: startOfCurrentSecond, by: 1)) { timeline in
             List(store.accounts) { account in
-                AccountRow(account: account, date: timeline.date) {
+                AccountRow(name: account.name, secret: store.secrets[account.id], date: timeline.date) {
                     accountToDelete = account
                 }
             }
+            .navigationSubtitle(statusText(at: timeline.date))
         }
         .overlay {
             if store.accounts.isEmpty {
@@ -53,6 +56,27 @@ struct AccountListView: View {
         } message: { _ in
             Text("You will no longer be able to get codes for this account. Make sure you have another way to sign in first.")
         }
+    }
+
+    // MARK: - Status
+
+    private func statusText(at date: Date) -> String {
+        switch store.status {
+        case .checking:
+            "Checking…"
+        case .offline:
+            "Offline. Codes stay locked."
+        case .open:
+            "Unlocked. Locks \(relativeText(store.schedule.nextClosing(after: date), from: date))."
+        case .locked:
+            "Locked. Opens \(relativeText(store.schedule.nextOpening(after: date), from: date))."
+        }
+    }
+
+    private func relativeText(_ target: Date, from date: Date) -> String {
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: target, relativeTo: date)
     }
 
     // MARK: - Helpers

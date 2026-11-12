@@ -4,7 +4,7 @@
 # Run it from anywhere:  bin/deploy
 #
 # Steps: build Release, quit the running app, copy the new one over,
-# delete the build folder, launch.
+# delete the build folders, launch. Needs Rust for the time-lock library.
 
 set -euo pipefail
 
@@ -27,7 +27,7 @@ echo "Installing to $INSTALLED_APP…"
 rm -rf "$INSTALLED_APP"
 ditto "$BUILT_APP" "$INSTALLED_APP"
 
-rm -rf "$BUILD_DIR"
+rm -rf "$BUILD_DIR" Timelock/target
 
 open "$INSTALLED_APP"
 echo "Done. $APP_NAME is running."

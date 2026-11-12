@@ -11,6 +11,11 @@ enum TOTP {
     static let period: TimeInterval = 30
     private static let digitCount = 6
 
+    /// The code for a secret key as the website shows it ("JBSW Y3DP…"), or nil if the key is not valid.
+    static func code(base32Secret: String, at date: Date) -> String? {
+        Base32.decode(base32Secret).map { code(secret: $0, at: date) }
+    }
+
     static func code(secret: Data, at date: Date) -> String {
         let counter = UInt64(date.timeIntervalSince1970 / period).bigEndian
         let counterData = withUnsafeBytes(of: counter) { Data($0) }

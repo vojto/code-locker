@@ -3,10 +3,12 @@ import SwiftUI
 /*
  * One row in the list: account name, its current code and the countdown ring.
  * Click the row to copy the code. Right-click for Copy and Delete.
+ * While the account is locked (no secret), it shows dots and a padlock instead.
  */
 
 struct AccountRow: View {
-    let account: Account
+    let name: String
+    let secret: String?
     let date: Date
     let onDelete: () -> Void
 
@@ -16,12 +18,13 @@ struct AccountRow: View {
         Button(action: copyCode) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(account.name)
+                    Text(name)
                         .foregroundStyle(.secondary)
 
-                    Text(formattedCode)
+                    Text(code?.groupedInThrees ?? "••• •••")
                         .font(.system(.title, design: .rounded).monospacedDigit())
                         .fontWeight(.medium)
+                        .foregroundStyle(isLocked ? .tertiary : .primary)
                         .contentTransition(.numericText())
                 }
 
@@ -34,17 +37,25 @@ struct AccountRow: View {
                         .transition(.opacity)
                 }
 
-                CountdownRing(secondsRemaining: TOTP.secondsRemaining(at: date), period: TOTP.period)
+                if isLocked {
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 20, height: 20)
+                } else {
+                    CountdownRing(secondsRemaining: TOTP.secondsRemaining(at: date), period: TOTP.period)
+                }
             }
             .padding(.vertical, 4)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help("Click to copy")
+        .disabled(isLocked)
+        .help(isLocked ? "Locked" : "Click to copy")
         .animation(.default, value: isCopied)
         .animation(.default, value: code)
         .contextMenu {
             Button("Copy Code", action: copyCode)
+                .disabled(isLocked)
             Divider()
             Button("Delete…", role: .destructive, action: onDelete)
         }
@@ -52,15 +63,17 @@ struct AccountRow: View {
 
     // MARK: - Code
 
-    private var code: String {
-        account.code(at: date)
+    private var isLocked: Bool {
+        secret == nil
     }
 
-    private var formattedCode: String {
-        "\(code.prefix(3)) \(code.suffix(3))"
+    private var code: String? {
+        secret.flatMap { TOTP.code(base32Secret: $0, at: date) }
     }
 
     private func copyCode() {
+        guard let code else { return }
+
         Pasteboard.copy(code)
         isCopied = true
 
@@ -73,8 +86,8 @@ struct AccountRow: View {
 
 #Preview {
     List {
-        AccountRow(account: Account(name: "GitHub", secret: "JBSWY3DPEHPK3PXP"), date: .now) {}
-        AccountRow(account: Account(name: "Google", secret: "GEZDGNBVGY3TQOJQ"), date: .now) {}
+        AccountRow(name: "GitHub", secret: "JBSWY3DPEHPK3PXP", date: .now) {}
+        AccountRow(name: "Twitter", secret: nil, date: .now) {}
     }
     .frame(width: 340)
 }

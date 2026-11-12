@@ -8,7 +8,7 @@ import SwiftUI
 
 struct DebugBanner: View {
     var body: some View {
-        Label("Debug build — separate accounts", systemImage: "hammer.fill")
+        Label("Debug build — opens 1 min in every 3", systemImage: "hammer.fill")
             .font(.callout.weight(.medium))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
