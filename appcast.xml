@@ -1,0 +1,19 @@
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Code Locker</title>
+        <item>
+            <title>1.1</title>
+            <pubDate>Thu, 19 Nov 2026 15:00:37 +0100</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/vojto/code-locker/releases/download/v1.1/Code-Locker.zip" length="1448610" type="application/octet-stream" sparkle:edSignature="TtVq09bNqsH9HibqTaYKSlj9gBHNk2El21PtX/+g8fAYYSq+f9rYElF3MoE7pX7KSOHmaUf9Y0IUVKsp3S4eBQ=="></enclosure>
+        </item>
+    </channel>
+</rss><!-- sparkle-signatures:
+edSignature: nsalJ8t/f1nBUYmsD8kj1wihkjNANLYetL04pvS7Dnp/xhUtN2y6wL/pfJMCSsFyt+wOkowGi2uNpO8nHS81Aw==
+length: 1114
+-->
