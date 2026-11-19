@@ -13,7 +13,8 @@ Website: [rinik.net/code-locker](https://rinik.net/code-locker)
 
 Needs macOS 15 or newer on Apple silicon.
 
-Unzip it and drag Code Locker to your Applications folder.
+Unzip it and drag Code Locker to your Applications folder. It keeps itself up
+to date after that.
 
 ## What it does
 
@@ -60,18 +61,33 @@ bin/deploy
 
 This builds the production app, puts it in `/Applications`, and launches it.
 
-```bash
-bin/release
-```
-
-This builds the app for download: it gets it notarized by Apple and leaves
-`Code-Locker.zip` in the repo folder. It needs the
-[asc](https://github.com/rudrankriyam/App-Store-Connect-CLI) tool, signed in
-with an App Store Connect API key.
-
 Signing uses a Developer ID certificate and a provisioning profile named
 "Code Locker Developer ID" that allows iCloud. To build it yourself, change
 `DEVELOPMENT_TEAM`, the bundle ID and the iCloud container to your own.
+
+## Releases
+
+Updates use [Sparkle 2](https://sparkle-project.org/). The app reads a signed feed from
+[GitHub Pages](https://vojto.github.io/code-locker/appcast.xml) (the `gh-pages` branch)
+and downloads the zip from GitHub Releases. Debug builds never start the updater.
+
+To release, bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in the Xcode
+project, commit and push, then:
+
+```bash
+bin/release            # optional: build the notarized zip and the feed locally
+```
+
+```bash
+bin/release --publish  # also create the GitHub release and push the feed
+```
+
+It needs the [asc](https://github.com/rudrankriyam/App-Store-Connect-CLI) tool signed
+in with an App Store Connect API key, a signed-in `gh`, and the Sparkle private key in
+the login Keychain under the account `code-locker`. Its public half is `SUPublicEDKey`
+in `CodeLocker/Info.plist`. To move the key to another Mac, export it with Sparkle's
+`generate_keys --account code-locker -x <file>` and import it with `-f <file>`. Keep
+that file out of the repository.
 
 ## Develop
 

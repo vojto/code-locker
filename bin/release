@@ -1,32 +1,106 @@
 #!/bin/bash
 #
-# Builds the app for download and leaves it as Code-Locker.zip in the repo folder.
-# Run it from anywhere:  bin/release
+# Builds a release of Code Locker and, with --publish, ships it.
 #
-# Steps: build Release, send it to Apple to notarize, staple the ticket,
-# zip it, delete the build folders. Needs Rust and the asc tool, signed in
-# with an App Store Connect API key (asc auth login …).
+#   bin/release             build Code-Locker.zip and the update feed, publish nothing
+#   bin/release --publish   also create the GitHub release and push the feed
+#
+# Steps: build Release, have Apple notarize it, zip it, add it to the Sparkle
+# feed from the gh-pages branch. Publishing uploads the zip as a GitHub release
+# and pushes the feed to GitHub Pages, where installed apps look for updates.
+# The version comes from MARKETING_VERSION in the Xcode project.
+#
+# One-time setup on the release Mac (nothing secret lives in this repository):
+#   - Rust, and a "Developer ID Application" certificate in the Keychain
+#   - the asc tool, signed in with an App Store Connect API key (asc auth login …)
+#   - the Sparkle private key in the Keychain, under the account "code-locker"
+#   - a signed-in gh CLI
 
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-APP_NAME="Code Locker"
+REPOSITORY="vojto/code-locker"
+KEY_ACCOUNT="code-locker"
 BUILD_DIR="build"
-BUILT_APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
+TOOLS="$BUILD_DIR/SourcePackages/artifacts/sparkle/Sparkle/bin"
+SITE="$BUILD_DIR/update-site"
+APP="$BUILD_DIR/Build/Products/Release/Code Locker.app"
 ZIP="Code-Locker.zip"
 
-echo "Building…"
+IS_PUBLISHING=false
+if [ "${1:-}" = "--publish" ]; then
+    IS_PUBLISHING=true
+fi
+
+if $IS_PUBLISHING; then
+    [ -z "$(git status --porcelain)" ] || { echo "Commit your changes before publishing."; exit 1; }
+    git fetch origin main
+    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || { echo "Publish from main, pushed to origin."; exit 1; }
+fi
+
+VERSION="$(sed -n 's/.*MARKETING_VERSION = \(.*\);/\1/p' CodeLocker.xcodeproj/project.pbxproj | head -1)"
+TAG="v$VERSION"
+if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+    echo "$TAG is already released. Bump MARKETING_VERSION and CURRENT_PROJECT_VERSION in the Xcode project first."
+    exit 1
+fi
+
+echo "==> Building $VERSION"
+rm -rf "$BUILD_DIR"
 xcodebuild -project CodeLocker.xcodeproj -scheme CodeLocker -configuration Release \
     -destination "platform=macOS,arch=$(uname -m)" -derivedDataPath "$BUILD_DIR" -quiet build
 
-echo "Notarizing…"
-ditto -c -k --keepParent "$BUILT_APP" "$BUILD_DIR/notarize.zip"
+PUBLIC_KEY="$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" CodeLocker/Info.plist)"
+[ "$("$TOOLS/generate_keys" --account "$KEY_ACCOUNT" -p)" = "$PUBLIC_KEY" ] || { echo "The Keychain's Sparkle key doesn't match SUPublicEDKey."; exit 1; }
+
+echo "==> Signing Sparkle"
+# Xcode leaves Sparkle's helpers unsigned, which Apple won't notarize.
+# Sign them from the inside out, then the app again because its contents changed.
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+sign() { codesign --force --sign "Developer ID Application" --options runtime --timestamp "$@"; }
+sign "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+sign --preserve-metadata=entitlements "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+sign "$SPARKLE/Versions/B/Autoupdate"
+sign "$SPARKLE/Versions/B/Updater.app"
+sign "$SPARKLE"
+sign --preserve-metadata=entitlements "$APP"
+
+echo "==> Notarizing"
+ditto -c -k --keepParent "$APP" "$BUILD_DIR/notarize.zip"
 asc notarization submit --file "$BUILD_DIR/notarize.zip" --wait --output table
-xcrun stapler staple "$BUILT_APP"
+xcrun stapler staple "$APP"
+spctl --assess --type execute --verbose "$APP"
 
 rm -f "$ZIP"
-ditto -c -k --keepParent "$BUILT_APP" "$ZIP"
+ditto -c -k --keepParent "$APP" "$ZIP"
+
+echo "==> Updating the feed"
+# Start from the published feed so older versions stay listed.
+REMOTE="$(git remote get-url origin)"
+if git ls-remote --exit-code --heads "$REMOTE" gh-pages >/dev/null; then
+    git clone --depth=1 --branch=gh-pages "$REMOTE" "$SITE"
+else
+    git init -b gh-pages "$SITE"
+    git -C "$SITE" remote add origin "$REMOTE"
+fi
+cp "$ZIP" "$SITE/"
+"$TOOLS/generate_appcast" --account "$KEY_ACCOUNT" \
+    --download-url-prefix "https://github.com/$REPOSITORY/releases/download/$TAG/" \
+    --maximum-deltas 0 --maximum-versions 3 "$SITE"
+rm "$SITE/$ZIP"
+
+if $IS_PUBLISHING; then
+    # Release the zip before the feed points at it.
+    gh release create "$TAG" "$ZIP" --repo "$REPOSITORY" --title "Code Locker $VERSION" --generate-notes
+    git -C "$SITE" add appcast.xml
+    git -C "$SITE" commit -m "Publish $TAG"
+    # GitHub turns on Pages by itself the first time gh-pages is pushed.
+    git -C "$SITE" push origin gh-pages
+    echo "Published $TAG."
+else
+    cat "$SITE/appcast.xml"
+    echo "Built $ZIP. That was the feed. Publish with: bin/release --publish"
+fi
 
 rm -rf "$BUILD_DIR" Timelock/target
-echo "Done. $ZIP is ready."
