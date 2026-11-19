@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# Builds the app for download and leaves it as Code-Locker.zip in the repo folder.
+# Run it from anywhere:  bin/release
+#
+# Steps: build Release, send it to Apple to notarize, staple the ticket,
+# zip it, delete the build folders. Needs Rust and a notarytool profile
+# named "code-locker" (xcrun notarytool store-credentials code-locker …).
+
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+APP_NAME="Code Locker"
+BUILD_DIR="build"
+BUILT_APP="$BUILD_DIR/Build/Products/Release/$APP_NAME.app"
+ZIP="Code-Locker.zip"
+
+echo "Building…"
+xcodebuild -project CodeLocker.xcodeproj -scheme CodeLocker -configuration Release \
+    -destination "platform=macOS,arch=$(uname -m)" -derivedDataPath "$BUILD_DIR" -quiet build
+
+echo "Notarizing…"
+ditto -c -k --keepParent "$BUILT_APP" "$BUILD_DIR/notarize.zip"
+xcrun notarytool submit "$BUILD_DIR/notarize.zip" --keychain-profile code-locker --wait
+xcrun stapler staple "$BUILT_APP"
+
+rm -f "$ZIP"
+ditto -c -k --keepParent "$BUILT_APP" "$ZIP"
+
+rm -rf "$BUILD_DIR" Timelock/target
+echo "Done. $ZIP is ready."

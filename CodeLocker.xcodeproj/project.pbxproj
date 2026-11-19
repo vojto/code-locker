@@ -258,6 +258,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = net.rinik.CodeLocker;
 				PRODUCT_NAME = "Code Locker";
 				CODE_SIGN_ENTITLEMENTS = CodeLocker/CodeLocker.entitlements;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				OTHER_CODE_SIGN_FLAGS = "--timestamp";
 				PROVISIONING_PROFILE_SPECIFIER = "Code Locker Developer ID";
 			};
 			name = Release;

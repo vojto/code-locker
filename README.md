@@ -5,6 +5,18 @@ A tiny Mac app for two-factor login codes that you can lock away for a while.
 It is for accounts you want to stay out of most of the time. You keep a way
 back in, but not in a weak moment.
 
+Website: [rinik.net/code-locker](https://rinik.net/code-locker)
+
+## Download
+
+**[Download Code Locker](https://github.com/vojto/code-locker/releases/latest/download/Code-Locker.zip)**
+
+Needs macOS 15 or newer on Apple silicon.
+
+Unzip it and drag Code Locker to your Applications folder.
+
+## What it does
+
 - Add an account with its secret key, or paste an `otpauth://` link.
 - Click a row to copy the code.
 - Right-click a row and choose Lock… to lock it for minutes, hours, days or weeks.
@@ -38,15 +50,23 @@ Things to know:
 - The time-lock library ([tlock](https://github.com/thibmeu/tlock-rs)) has not
   been audited.
 
-## Install
+## Build from source
 
-Needs macOS 15 or newer, Xcode, and [Rust](https://rustup.rs).
+Needs macOS 15 or newer on Apple silicon, Xcode, and [Rust](https://rustup.rs).
 
 ```bash
 bin/deploy
 ```
 
 This builds the production app, puts it in `/Applications`, and launches it.
+
+```bash
+bin/release
+```
+
+This builds the app for download: it gets it notarized by Apple and leaves
+`Code-Locker.zip` in the repo folder. It needs a notarytool profile named
+`code-locker` in your keychain.
 
 Signing uses a Developer ID certificate and a provisioning profile named
 "Code Locker Developer ID" that allows iCloud. To build it yourself, change
@@ -61,3 +81,7 @@ the whole cycle.
 
 The app is SwiftUI. The time-lock maths is a small Rust library in `Timelock/`,
 built automatically by `bin/build-timelock`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
