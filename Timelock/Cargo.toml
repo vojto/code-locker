@@ -13,3 +13,7 @@ tlock = "=0.0.10"
 opt-level = "s"
 lto = true
 strip = true
+
+# Stripping the build-time helpers (proc macros) makes files that macOS 27 refuses to load.
+[profile.release.build-override]
+strip = false

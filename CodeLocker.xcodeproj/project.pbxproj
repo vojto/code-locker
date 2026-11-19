@@ -257,6 +257,8 @@
 				SWIFT_VERSION = 5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = net.rinik.CodeLocker;
 				PRODUCT_NAME = "Code Locker";
+				CODE_SIGN_ENTITLEMENTS = CodeLocker/CodeLocker.entitlements;
+				PROVISIONING_PROFILE_SPECIFIER = "Code Locker Developer ID";
 			};
 			name = Release;
 		};

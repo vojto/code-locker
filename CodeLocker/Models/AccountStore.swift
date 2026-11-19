@@ -2,134 +2,123 @@ import Foundation
 import Observation
 
 /*
- * The accounts shown in the window, and the keeper of the lock. Views read
- * `accounts`, `secrets` and `status`, and call add/delete.
+ * The accounts shown in the window. Views read `accounts` and call add, lock
+ * and delete.
  *
- * Accounts are saved to a file in time-locked form. While the schedule is open,
- * the store fetches the drand signatures and keeps the readable secrets in
- * memory only. When the schedule closes, it locks every account again for the
- * next opening and forgets the secrets. It checks every few seconds.
+ * New accounts are unlocked. Locking one swaps its plain secret for the
+ * time-locked form. Every few seconds the store looks for locks whose time has
+ * passed, fetches their drand signature and turns them back into plain ones.
+ *
+ * Release builds save to accounts.json in iCloud (or locally when not signed
+ * in), debug builds to a local file. Nothing is saved until the file has been
+ * read, so an empty list can't overwrite real data. While the list is empty,
+ * the store keeps re-reading the file, in case iCloud brings it in late.
  */
 
 @Observable
 final class AccountStore {
-    enum Status {
-        case checking
-        case offline
-        case locked
-        case open
-    }
-
     private(set) var accounts: [Account] = []
-    private(set) var secrets: [UUID: String] = [:]
-    private(set) var status = Status.checking
 
-    let schedule = Schedule.current
-
-    private static let fileURL = URL.applicationSupportDirectory.appending(path: "accounts.json")
+    /// Set once the file has been read. Saving waits for it.
+    private var fileURL: URL?
 
     // MARK: - Lifecycle
 
     init() {
-        load()
-        Task { await keepInSync() }
+        Task { await run() }
+    }
+
+    private func run() async {
+        await load(from: await Self.findFileURL())
+
+        while true {
+            await unlockOpenedAccounts()
+            try? await Task.sleep(for: .seconds(5))
+            if accounts.isEmpty, let fileURL { await load(from: fileURL) }
+        }
     }
 
     // MARK: - Changes
 
     func add(name: String, secret: String) {
-        // While open, lock for right now so it stays readable until closing time.
-        let isOpen = status == .open
-        let opening = isOpen ? Date.now : schedule.nextOpening(after: .now)
-
-        guard let account = Account(name: name, secret: secret, opening: opening) else { return }
-
-        accounts.append(account)
-        if isOpen { secrets[account.id] = secret }
+        accounts.append(Account(name: name, secret: secret))
         save()
+    }
+
+    func lock(_ account: Account, for period: LockPeriod) {
+        guard let locked = account.locked(for: period) else { return }
+        replace(locked)
     }
 
     func delete(_ account: Account) {
         accounts.removeAll { $0.id == account.id }
-        secrets[account.id] = nil
         save()
     }
 
-    // MARK: - Locking and unlocking
-
-    private func keepInSync() async {
-        while true {
-            if isOutOfSync { await sync() }
-            try? await Task.sleep(for: .seconds(5))
-        }
-    }
-
-    private var isOutOfSync: Bool {
-        switch status {
-        case .checking, .offline:
-            true
-        case .open:
-            !schedule.isOpen(at: .now) || accounts.contains { isOpenable($0) && secrets[$0.id] == nil }
-        case .locked:
-            schedule.isOpen(at: .now) || accounts.contains(where: isOpenable)
-        }
-    }
-
-    private func isOpenable(_ account: Account) -> Bool {
-        Drand.date(of: account.round) <= .now
-    }
-
-    /// Opens or re-locks accounts to match the schedule, going by drand's time.
-    private func sync() async {
-        guard let latestRound = try? await Drand.latestRound() else {
-            secrets = [:]
-            status = .offline
-            return
-        }
-
-        let now = Drand.date(of: latestRound)
-        let isOpen = schedule.isOpen(at: now)
-
-        for account in accounts where account.round <= latestRound {
-            guard let secret = await secret(for: account) else { continue }
-
-            if isOpen {
-                secrets[account.id] = secret
-            } else {
-                relock(account, secret: secret, opening: schedule.nextOpening(after: now))
-            }
-        }
-
-        if !isOpen { secrets = [:] }
-        status = isOpen ? .open : .locked
+    private func replace(_ account: Account) {
+        guard let index = accounts.firstIndex(where: { $0.id == account.id }) else { return }
+        accounts[index] = account
         save()
     }
 
-    private func secret(for account: Account) async -> String? {
-        if let secret = secrets[account.id] { return secret }
-        guard let signature = try? await Drand.signature(for: account.round) else { return nil }
-        return account.secret(signature: signature)
-    }
+    // MARK: - Unlocking
 
-    private func relock(_ account: Account, secret: String, opening: Date) {
-        guard
-            let index = accounts.firstIndex(where: { $0.id == account.id }),
-            let relocked = Account(id: account.id, name: account.name, secret: secret, opening: opening)
-        else { return }
+    /// Opens every lock whose time has passed. If drand can't be reached yet, the next tick tries again.
+    private func unlockOpenedAccounts() async {
+        for account in accounts {
+            guard
+                let opening = account.opening,
+                opening <= .now,
+                let round = account.round,
+                let signature = try? await Drand.signature(for: round),
+                let unlocked = account.unlocked(signature: signature)
+            else { continue }
 
-        accounts[index] = relocked
+            replace(unlocked)
+        }
     }
 
     // MARK: - Storage
 
-    private func load() {
-        guard let data = try? Data(contentsOf: Self.fileURL) else { return }
-        accounts = (try? JSONDecoder().decode([Account].self, from: data)) ?? []
+    private func load(from url: URL) async {
+        if let data = await Self.read(url), let saved = try? JSONDecoder().decode([Account].self, from: data) {
+            accounts = saved
+        }
+
+        fileURL = url
     }
 
     private func save() {
-        guard let data = try? JSONEncoder().encode(accounts) else { return }
-        try? FileManager.default.createDirectory(at: Self.fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: Self.fileURL, options: .atomic)
+        guard let fileURL, let data = try? JSONEncoder().encode(accounts) else { return }
+        try? FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: fileURL, options: .atomic)
+    }
+
+    /// Reading from iCloud can block, so it happens off the main thread.
+    @concurrent
+    nonisolated private static func read(_ url: URL) async -> Data? {
+        try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        return try? Data(contentsOf: url)
+    }
+
+    /// The iCloud file in release builds, falling back to the local one. Moves an
+    /// existing local file into iCloud the first time. Can block, so runs off the main thread.
+    @concurrent
+    nonisolated private static func findFileURL() async -> URL {
+        let localURL = URL.applicationSupportDirectory.appending(path: "accounts.json")
+
+        #if DEBUG
+        return localURL
+        #else
+        guard let containerURL = FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.net.rinik.CodeLocker") else {
+            return localURL
+        }
+
+        let cloudURL = containerURL.appending(path: "accounts.json")
+        if !FileManager.default.fileExists(atPath: cloudURL.path(percentEncoded: false)), FileManager.default.fileExists(atPath: localURL.path(percentEncoded: false)) {
+            try? FileManager.default.setUbiquitous(true, itemAt: localURL, destinationURL: cloudURL)
+        }
+        return cloudURL
+        #endif
     }
 }

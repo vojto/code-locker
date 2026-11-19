@@ -28,18 +28,12 @@ enum Drand {
 
     // MARK: - Network
 
-    /// The newest published round. Also tells us the real time, whatever the Mac's clock says.
-    static func latestRound() async throws -> UInt64 {
-        try await fetch("public/latest").round
-    }
-
     /// Fails if the round has not been published yet.
     static func signature(for round: UInt64) async throws -> Data {
         Data(hex: try await fetch("public/\(round)").signature)
     }
 
     private struct Beacon: Decodable {
-        let round: UInt64
         let signature: String
     }
 

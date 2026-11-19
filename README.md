@@ -1,32 +1,40 @@
 # Code Locker
 
-A tiny Mac app for two-factor login codes that only shows them on Sundays.
+A tiny Mac app for two-factor login codes that you can lock away for a while.
 
 It is for accounts you want to stay out of most of the time. You keep a way
 back in, but not in a weak moment.
 
 - Add an account with its secret key, or paste an `otpauth://` link.
-- On Sundays, click a row to copy the code.
-- On other days the codes are locked, and nothing on your Mac can unlock them.
+- Click a row to copy the code.
+- Right-click a row and choose Lock… to lock it for minutes, hours, days or weeks.
+- While it is locked, nothing on your Mac can unlock it. When the time has
+  passed, it opens by itself.
+- Lock it again any time. It suggests the same period as last time.
 
 ## How the lock works
 
-Each secret is saved with [time-lock encryption](https://docs.drand.love/docs/timelock-encryption/).
+A locked secret is saved with [time-lock encryption](https://docs.drand.love/docs/timelock-encryption/).
 The key that opens it is published by the public [drand](https://drand.love) network
-on Sunday at midnight. Before that, the key does not exist anywhere. So reading
+at the moment you picked. Before that, the key does not exist anywhere. So reading
 the app's files, changing the Mac's clock or rebuilding the app does not help.
 
-When Sunday ends, the app locks everything again for the next Sunday. It has to
-be running to do that, so it starts at login and keeps running when you close
-its window.
+An unlocked secret is saved as plain text.
+
+Everything lives in one file, `accounts.json`, in the app's private iCloud
+folder. If you lose your Mac, install the app on a new one, sign in to iCloud,
+and your accounts come back. Locked ones still open on time.
 
 Things to know:
 
+- A lock cannot be undone or shortened. Check the date before you click Lock.
 - The app needs internet to unlock.
-- On a Sunday the secrets are readable. That is the point.
-- If the app does not run at all after a Sunday, the saved file stays openable
-  until the next time it runs.
+- Unlocked secrets sit in iCloud as plain text. Turn on Advanced Data
+  Protection if you want only your own devices to be able to read them.
+- An old backup of the file (Time Machine) can hold a secret from when it was
+  unlocked.
 - Don't keep the setup key anywhere else, or the lock is pointless.
+- Very long locks depend on drand still running when they end.
 - The time-lock library ([tlock](https://github.com/thibmeu/tlock-rs)) has not
   been audited.
 
@@ -40,14 +48,16 @@ bin/deploy
 
 This builds the production app, puts it in `/Applications`, and launches it.
 
-Signing uses a Developer ID certificate. To build it yourself, change
-`DEVELOPMENT_TEAM` in the Xcode project to your own team.
+Signing uses a Developer ID certificate and a provisioning profile named
+"Code Locker Developer ID" that allows iCloud. To build it yourself, change
+`DEVELOPMENT_TEAM`, the bundle ID and the iCloud container to your own.
 
 ## Develop
 
 Open `CodeLocker.xcodeproj` and press ⌘R. Debug builds are a separate app
-("Code Locker Debug") with their own accounts and an orange strip at the bottom.
-They open for 1 minute in every 3, so you can watch the whole lock cycle.
+("Code Locker Debug") with an orange strip at the bottom. They keep their
+accounts in a local file, not in iCloud. Lock something for 1 minute to watch
+the whole cycle.
 
 The app is SwiftUI. The time-lock maths is a small Rust library in `Timelock/`,
 built automatically by `bin/build-timelock`.

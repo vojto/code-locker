@@ -2,9 +2,8 @@ import SwiftUI
 
 /*
  * The sheet for adding an account: a name and the secret key from the website.
- * Also takes a whole otpauth:// link pasted into the key field. Once the key is
- * valid it shows the current code, because websites ask for one to finish setup
- * and the account gets locked as soon as it is added.
+ * Also takes a whole otpauth:// link pasted into the key field. New accounts
+ * start unlocked, so the code shows in the list right away; you lock them later.
  */
 
 struct AddAccountSheet: View {
@@ -23,21 +22,6 @@ struct AddAccountSheet: View {
             Text("Paste the setup key the website shows you, or an otpauth:// link.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-
-            if isSecretValid {
-                LabeledContent("Code Now:") {
-                    TimelineView(.periodic(from: .now, by: 1)) { timeline in
-                        Text(TOTP.code(base32Secret: secret, at: timeline.date)?.groupedInThrees ?? "")
-                            .font(.body.monospacedDigit().weight(.medium))
-                            .textSelection(.enabled)
-                    }
-                }
-
-                Text("If the website asks for a code to finish setup, use this one now. After you click Add, codes are locked until the next opening.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
         .padding(20)
         .frame(width: 400)

@@ -2,14 +2,18 @@ import SwiftUI
 
 /*
  * One row in the list: account name, its current code and the countdown ring.
- * Click the row to copy the code. Right-click for Copy and Delete.
- * While the account is locked (no secret), it shows dots and a padlock instead.
+ * Click the row to copy the code. Right-click for Copy, Lock and Delete.
+ * While the account is locked (no secret), it shows dots, a padlock and when
+ * it opens, like "Opens in 3 days". Once that time has passed, it says
+ * "Opening…" until the app has the key.
  */
 
 struct AccountRow: View {
     let name: String
     let secret: String?
+    let opening: Date?
     let date: Date
+    let onLock: () -> Void
     let onDelete: () -> Void
 
     @State private var isCopied = false
@@ -30,8 +34,8 @@ struct AccountRow: View {
 
                 Spacer()
 
-                if isCopied {
-                    Text("Copied")
+                if let noteText {
+                    Text(noteText)
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .transition(.opacity)
@@ -55,6 +59,8 @@ struct AccountRow: View {
         .animation(.default, value: code)
         .contextMenu {
             Button("Copy Code", action: copyCode)
+                .disabled(isLocked)
+            Button("Lock…", action: onLock)
                 .disabled(isLocked)
             Divider()
             Button("Delete…", role: .destructive, action: onDelete)
@@ -82,12 +88,22 @@ struct AccountRow: View {
             isCopied = false
         }
     }
+
+    // MARK: - Note
+
+    /// The small text next to the ring or padlock.
+    private var noteText: String? {
+        if isCopied { return "Copied" }
+        guard let opening else { return nil }
+        return opening > date ? "Opens \(opening.relativeText(from: date))" : "Opening…"
+    }
 }
 
 #Preview {
     List {
-        AccountRow(name: "GitHub", secret: "JBSWY3DPEHPK3PXP", date: .now) {}
-        AccountRow(name: "Twitter", secret: nil, date: .now) {}
+        AccountRow(name: "GitHub", secret: "JBSWY3DPEHPK3PXP", opening: nil, date: .now, onLock: {}, onDelete: {})
+        AccountRow(name: "Twitter", secret: nil, opening: .now.addingTimeInterval(3 * 86_400), date: .now, onLock: {}, onDelete: {})
+        AccountRow(name: "Reddit", secret: nil, opening: .now.addingTimeInterval(-10), date: .now, onLock: {}, onDelete: {})
     }
     .frame(width: 340)
 }
