@@ -12,5 +12,7 @@
 	<string>p7lbfZoCyOWchk6PfwO470T8hnbVWfPgzEl2La3p97I=</string>
 	<key>SURequireSignedFeed</key>
 	<true/>
+	<key>SUVerifyUpdateBeforeExtraction</key>
+	<true/>
 </dict>
 </plist>
