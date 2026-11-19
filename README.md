@@ -1,3 +1,5 @@
+<a href="https://rinik.net/code-locker"><img src="docs/hero.jpg" alt="Code Locker: login codes you can lock away until a date you choose." width="100%"></a>
+
 # Code Locker
 
 A tiny Mac app for two-factor login codes that you can lock away for a while.
@@ -18,6 +20,8 @@ to date after that.
 
 ## What it does
 
+<img src="docs/app.png" alt="The Code Locker window. GitHub shows a code. Instagram, X and Reddit are locked and show when they open." width="440">
+
 - Add an account with its secret key, or paste an `otpauth://` link.
 - Click a row to copy the code.
 - Right-click a row and choose Lock… to lock it for minutes, hours, days or weeks.
@@ -31,6 +35,11 @@ A locked secret is saved with [time-lock encryption](https://docs.drand.love/doc
 The key that opens it is published by the public [drand](https://drand.love) network
 at the moment you picked. Before that, the key does not exist anywhere. So reading
 the app's files, changing the Mac's clock or rebuilding the app does not help.
+
+<img src="docs/keys.jpg" alt="drand keys by number. The ones left of now are made. The ones right of now are not made yet." width="100%">
+
+drand makes a new key every 3 seconds, and each one has a number. A lock waits
+for the key with the number that comes out at your date.
 
 An unlocked secret is saved as plain text.
 
@@ -98,6 +107,12 @@ the whole cycle.
 
 The app is SwiftUI. The time-lock maths is a small Rust library in `Timelock/`,
 built automatically by `bin/build-timelock`.
+
+## Website
+
+The site at [rinik.net/code-locker](https://rinik.net/code-locker) is the
+`website/` folder: plain HTML, CSS and JS, no build step. Open
+`website/index.html` to see it. The pictures in this README are in `docs/`.
 
 ## License
 
