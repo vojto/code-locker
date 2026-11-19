@@ -65,8 +65,9 @@ bin/release
 ```
 
 This builds the app for download: it gets it notarized by Apple and leaves
-`Code-Locker.zip` in the repo folder. It needs a notarytool profile named
-`code-locker` in your keychain.
+`Code-Locker.zip` in the repo folder. It needs the
+[asc](https://github.com/rudrankriyam/App-Store-Connect-CLI) tool, signed in
+with an App Store Connect API key.
 
 Signing uses a Developer ID certificate and a provisioning profile named
 "Code Locker Developer ID" that allows iCloud. To build it yourself, change

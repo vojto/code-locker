@@ -4,8 +4,8 @@
 # Run it from anywhere:  bin/release
 #
 # Steps: build Release, send it to Apple to notarize, staple the ticket,
-# zip it, delete the build folders. Needs Rust and a notarytool profile
-# named "code-locker" (xcrun notarytool store-credentials code-locker …).
+# zip it, delete the build folders. Needs Rust and the asc tool, signed in
+# with an App Store Connect API key (asc auth login …).
 
 set -euo pipefail
 
@@ -22,7 +22,7 @@ xcodebuild -project CodeLocker.xcodeproj -scheme CodeLocker -configuration Relea
 
 echo "Notarizing…"
 ditto -c -k --keepParent "$BUILT_APP" "$BUILD_DIR/notarize.zip"
-xcrun notarytool submit "$BUILD_DIR/notarize.zip" --keychain-profile code-locker --wait
+asc notarization submit --file "$BUILD_DIR/notarize.zip" --wait --output table
 xcrun stapler staple "$BUILT_APP"
 
 rm -f "$ZIP"
