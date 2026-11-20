@@ -11,7 +11,8 @@ import Observation
  *
  * Release builds save to accounts.json in iCloud (or locally when not signed
  * in), debug builds to a local file. Nothing is saved until the file has been
- * read, so an empty list can't overwrite real data. While the list is empty,
+ * read, so an empty list can't overwrite real data. `isLoaded` tells the window
+ * when that has happened, so it can show "Loading" before it. While the list is empty,
  * the store keeps re-reading the file, in case iCloud brings it in late.
  */
 
@@ -21,6 +22,8 @@ final class AccountStore {
 
     /// Set once the file has been read. Saving waits for it.
     private var fileURL: URL?
+
+    var isLoaded: Bool { fileURL != nil }
 
     // MARK: - Lifecycle
 
