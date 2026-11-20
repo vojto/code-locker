@@ -28,7 +28,13 @@ struct AccountListView: View {
             }
         }
         .overlay {
-            if store.accounts.isEmpty {
+            if !store.isLoaded {
+                ContentUnavailableView(
+                    "Loading Accounts",
+                    systemImage: "hourglass",
+                    description: Text("Just a moment.")
+                )
+            } else if store.accounts.isEmpty {
                 ContentUnavailableView(
                     "No Accounts",
                     systemImage: "lock.shield",
